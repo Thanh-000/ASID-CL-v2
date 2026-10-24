@@ -1,0 +1,56 @@
+# Python and test caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# Local environments and editor metadata
+.venv/
+.idea/
+.vscode/
+.DS_Store
+.agent/
+.agents/
+
+# Large local datasets, external cloned repos, and paper workspace artifacts
+data/
+external/
+external_data/
+external_repos/
+UK_CrisisMMD_Public/
+UK_CrisisMMD_Public.zip
+analysis_outputs/
+colab_bundle/
+colab_bundles/
+experiments/
+docs/
+latex_five_paper_report/
+latex_master_survey_report/
+overleaf_sections/
+tai_lieu_nghien_cuu_moi/
+output/
+outputs/
+scratch/
+tmp/
+*.pdf
+*.zip
+*.tar.gz
+*.pt
+*.npz
+*.bin
+*.log
+main.tex
+references.bib
+AGENTS.md
+/*.ipynb
+
+# Temporary files
+*.tmp
+*.bak
+*.orig
+*.rej
+*~

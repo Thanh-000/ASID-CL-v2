@@ -1,0 +1,12 @@
+# ============================================================================
+# MM-FLEX-MERGE Merger Configuration
+# ============================================================================
+# Dynamic Adaptive Subspace Projection (DASP) + Elastic Residual Plasticity
+
+method: "MM-FLEX-MERGE"
+
+merging:
+  base_alpha: 0.5           # DASP energy threshold (capped at 0.85)
+  tau: 4.0                  # Exponential decay time constant
+  elastic_rank: 8           # LoRA residual plasticity rank
+  initial_gamma: 0.35       # Plasticity injection coefficient (decays with 1/sqrt(t+1))

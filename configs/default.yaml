@@ -1,0 +1,32 @@
+# ============================================================================
+# MM-FLEX-MERGE: Default Configuration
+# ============================================================================
+# Tất cả hyperparameters mặc định được tập trung tại đây.
+# Override bằng cách truyền file YAML con hoặc CLI args.
+
+seed: 42
+
+# --- Model Head Architecture ---
+model:
+  in_features: 512          # CLIP embedding dimension
+  hidden_dim: 256           # Projection hidden dimension
+  num_classes: 3            # UK-CrisisMMD default classes
+  temperature: 1.0          # Cross-gating softmax temperature
+
+# --- Router ---
+router:
+  default_bias: -0.25       # Negative routing bias for non-anchor tasks
+  beta: 0.5                 # Image-Text centroid interpolation weight
+
+# --- Training ---
+training:
+  lr: 0.01
+  weight_decay: 1.0e-4
+  epochs: 30
+  optimizer: "adamw"
+
+# --- Evaluation ---
+evaluation:
+  num_seeds: 5              # Statistical significance: 5 random seeds
+  alpha_levels: [0.05, 0.01, 0.001]
+  missing_ratios: [0.0, 0.1, 0.2, 0.3, 0.5]

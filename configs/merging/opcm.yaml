@@ -1,0 +1,9 @@
+# ============================================================================
+# OPCM Merger Configuration (Tang et al., 2025)
+# ============================================================================
+# Orthogonal Projection for Continual Model Merging
+
+method: "OPCM"
+
+merging:
+  alpha: 0.5                # SVD energy threshold for subspace rank selection

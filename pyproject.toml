@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mm-flex-merge"
+version = "1.0.0"
+description = "MM-FLEX-MERGE: Multimodal Dynamic Orthogonal Elastic Merging Framework for Continual Model Merging"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "MM-FLEX-MERGE Research Team"},
+]
+keywords = [
+    "model-merging",
+    "continual-learning",
+    "multimodal",
+    "orthogonal-projection",
+    "machine-unlearning",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+    "torch>=2.0",
+    "numpy>=1.24",
+    "scikit-learn>=1.3",
+    "scipy>=1.11",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "flake8>=6.0",
+]
+colab = [
+    "transformers>=4.35",
+    "open_clip_torch>=2.20",
+    "datasets>=2.14",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"

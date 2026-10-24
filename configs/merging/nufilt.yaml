@@ -1,0 +1,11 @@
+# ============================================================================
+# NUFILT Merger Configuration (ICLR 2026)
+# ============================================================================
+# Null-Space Filtered Model Merging with Residual Plasticity
+
+method: "NUFILT"
+
+merging:
+  alpha: 0.5                # SVD energy threshold
+  lora_rank: 8              # Plasticity LoRA rank
+  lora_scale: 0.3           # LoRA residual scaling factor

@@ -67,7 +67,9 @@ torch.set_num_threads(min(8, os.cpu_count() or 8))
 SEEDS = (2027, 2028, 2029, 2030, 2031)
 
 
-def _load_official_module(mod_name: str, file_path: Path):
+def _load_official_module(mod_name: str, file_path: Path, fallback_vendor_name: str | None = None):
+    if not file_path.exists() and fallback_vendor_name is not None:
+        file_path = ROOT / "src" / "mm_flex_merge" / "vendor_sota" / fallback_vendor_name
     spec = importlib.util.spec_from_file_location(mod_name, str(file_path))
     mod = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
@@ -76,22 +78,32 @@ def _load_official_module(mod_name: str, file_path: Path):
 
 
 # ==============================================================================
-# DIRECT IMPORTS FROM AUTHOR REPOSITORIES IN `external_repos/`
+# DIRECT IMPORTS FROM AUTHOR REPOSITORIES IN `external_repos/` (OR `vendor_sota/`)
 # ==============================================================================
 _delo_mixlora_mod = _load_official_module(
-    "official_delo_mixlora", ROOT / "external_repos" / "DeLo" / "src" / "model" / "mixlora_layer.py"
+    "official_delo_mixlora",
+    ROOT / "external_repos" / "DeLo" / "src" / "model" / "mixlora_layer.py",
+    "delo_mixlora_layer.py",
 )
 _delo_criterion_mod = _load_official_module(
-    "official_delo_criterion", ROOT / "external_repos" / "DeLo" / "src" / "optim" / "criterion.py"
+    "official_delo_criterion",
+    ROOT / "external_repos" / "DeLo" / "src" / "optim" / "criterion.py",
+    "delo_criterion.py",
 )
 _tsvm_mod = _load_official_module(
-    "official_tsvm_utils", ROOT / "external_repos" / "task_singular_vectors" / "src" / "utils" / "TSVM_utils.py"
+    "official_tsvm_utils",
+    ROOT / "external_repos" / "task_singular_vectors" / "src" / "utils" / "TSVM_utils.py",
+    "tsvm_utils.py",
 )
 _knots_mod = _load_official_module(
-    "official_knots_merging", ROOT / "external_repos" / "KnOTS" / "merging_functions.py"
+    "official_knots_merging",
+    ROOT / "external_repos" / "KnOTS" / "merging_functions.py",
+    "knots_merging_functions.py",
 )
 _inflora_sched_mod = _load_official_module(
-    "official_inflora_sched", ROOT / "external_repos" / "InfLoRA" / "utils" / "schedulers.py"
+    "official_inflora_sched",
+    ROOT / "external_repos" / "InfLoRA" / "utils" / "schedulers.py",
+    "inflora_schedulers.py",
 )
 
 OfficialDeLoMixLoRALayer = _delo_mixlora_mod.MixLoRALayer

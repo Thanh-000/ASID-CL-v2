@@ -202,7 +202,7 @@ md(
 )
 code(
     r"""
-import gc, glob, time, random, subprocess
+import gc, glob, time, random, subprocess, tarfile, zipfile
 import numpy as np
 import pandas as pd
 from PIL import Image
@@ -244,21 +244,42 @@ def ensure_cifar100_cache(clip_model=None, tokenizer=None):
     raw_dir = pathlib.Path("/content/raw_cifar100")
     raw_dir.mkdir(parents=True, exist_ok=True)
     tar_file = raw_dir / "cifar-100-python.tar.gz"
-    if not (raw_dir / "cifar-100-python").exists():
-        print("🚀 [CIFAR-100] Đang tải siêu tốc cifar-100-python.tar.gz (169 MB) bằng aria2c 16 luồng (chỉ ~4 giây)...")
-        for url in (
-            "https://huggingface.co/datasets/ochoadavid/cifar100-python/resolve/main/cifar-100-python.tar.gz",
-            "https://www.cs.toronto.edu/~kriz/cifar-100-python.tar.gz",
-        ):
-            subprocess.run(
-                ["aria2c", "-x", "16", "-s", "16", "-k", "1M", "--allow-overwrite=true", "--console-log-level=warn", url, "-d", str(raw_dir), "-o", "cifar-100-python.tar.gz"],
-                check=False,
-            )
-            if tar_file.exists() and tar_file.stat().st_size > 160_000_000:
-                break
-        print("📦 Đang giải nén cifar-100-python.tar.gz...")
-        subprocess.run(["tar", "-xzf", str(tar_file), "-C", str(raw_dir)], check=True)
+    extract_target = raw_dir / "cifar-100-python"
+
+    if not extract_target.exists():
+        if tar_file.exists() and tar_file.stat().st_size < 160_000_000:
+            print("🧹 Xóa tệp tải dở hoặc lỗi trước đó...")
+            tar_file.unlink(missing_ok=True)
+
+        if not tar_file.exists():
+            print("🚀 [CIFAR-100] Đang tải siêu tốc cifar-100-python.tar.gz (169 MB) bằng CDN 16 luồng (chỉ ~3-5 giây)...")
+            mirrors = [
+                "https://huggingface.co/datasets/nakroy/cifar100-python/resolve/main/cifar-100-python.tar.gz",
+                "https://cave.cs.toronto.edu/kriz/cifar-100-python.tar.gz",
+                "https://www.cs.toronto.edu/~kriz/cifar-100-python.tar.gz",
+            ]
+            for url in mirrors:
+                subprocess.run(
+                    ["aria2c", "-x", "16", "-s", "16", "-k", "1M", "--allow-overwrite=true", "--check-certificate=false", "--console-log-level=warn", url, "-d", str(raw_dir), "-o", "cifar-100-python.tar.gz"],
+                    check=False,
+                )
+                if tar_file.exists() and tar_file.stat().st_size > 160_000_000:
+                    break
+                else:
+                    tar_file.unlink(missing_ok=True)
+
+            if not tar_file.exists() or tar_file.stat().st_size < 160_000_000:
+                print("⏳ Fallback: Đang tải qua curl -L...")
+                subprocess.run(
+                    ["curl", "-L", "-s", "https://huggingface.co/datasets/nakroy/cifar100-python/resolve/main/cifar-100-python.tar.gz", "-o", str(tar_file)],
+                    check=True,
+                )
+
+        print("📦 Đang giải nén cifar-100-python.tar.gz bằng tarfile...")
+        with tarfile.open(str(tar_file), "r:gz") as tar:
+            tar.extractall(path=str(raw_dir))
         tar_file.unlink(missing_ok=True)
+        print("✅ Giải nén CIFAR-100 hoàn tất!")
 
     ds_tr = torchvision.datasets.CIFAR100(root=str(raw_dir), train=True, download=False)
     ds_te = torchvision.datasets.CIFAR100(root=str(raw_dir), train=False, download=False)
@@ -381,8 +402,14 @@ def ensure_food101_cache(clip_model=None, tokenizer=None):
     if not food_root.exists() or not list(food_root.rglob("*.csv")):
         print("🚀 [UPMC-Food101] Đang tải bộ dữ liệu gốc UPMC-Food101 bằng aria2c (16 luồng siêu tốc)...")
         food_root.mkdir(parents=True, exist_ok=True)
-        !aria2c -x 16 -s 16 -k 1M --allow-overwrite=true -q "https://www.kaggle.com/api/v1/datasets/download/gianmarco96/upmcfood101" -d /content -o food101.zip
-        !unzip -q -o /content/food101.zip -d /content/food101 && rm -f /content/food101.zip
+        zip_file = pathlib.Path("/content/food101.zip")
+        subprocess.run(
+            ["aria2c", "-x", "16", "-s", "16", "-k", "1M", "--allow-overwrite=true", "-q", "https://www.kaggle.com/api/v1/datasets/download/gianmarco96/upmcfood101", "-d", "/content", "-o", "food101.zip"],
+            check=False,
+        )
+        if zip_file.exists():
+            subprocess.run(["unzip", "-q", "-o", str(zip_file), "-d", str(food_root)], check=True)
+            zip_file.unlink(missing_ok=True)
 
     csv_files = list(food_root.rglob("*.csv"))
     tr_csv = [p for p in csv_files if "train" in p.name.lower()][0]

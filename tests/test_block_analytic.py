@@ -212,5 +212,21 @@ def test_zero_filled_missing_modality_exact_equivalence_in_sid():
     assert torch.allclose(lg_sid[8:14], lg_img_only, atol=1e-12)
 
 
+def test_partial_modality_weighted_gram_math_scaling():
+    # Force _use_exact_class_grams = False to exercise _weighted_gram_and_sums
+    model = BlockAnalyticCL(
+        DIMS, C, projection_dim=P, ridge=0.1, class_balance_beta=0.5, seed=42
+    )
+    model._use_exact_class_grams = False
+    x1, y1 = _data(30, 1)
+    x2, y2 = _data(30, 2)
+    model.update({"img": x1["img"]}, y1)
+    model.update(x2, y2)
+    W = model.solve(("img", "txt"))
+    assert W.shape == (2 * P, C)
+    assert not torch.isnan(W).any()
+
+
+
 
 

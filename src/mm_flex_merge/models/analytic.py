@@ -21,6 +21,7 @@ Consequences (all exact in FP64, zero retraining):
 
 from __future__ import annotations
 
+import math
 import zlib
 from typing import Mapping, Sequence
 
@@ -633,7 +634,6 @@ class BlockAnalyticCL:
                 return self._cache[mods]
 
             G, S = self._weighted_gram_and_sums(mods)
-            P = self.projection_dim
             if self.modality_ridges is not None and len(mods) == 1:
                 r_m = self.modality_ridges.get(mods[0], self.ridge)
                 lam = r_m * max(float(torch.trace(G)) / G.shape[0], 1e-12)

@@ -1,26 +1,11 @@
 #!/usr/bin/env python3
 """
-Generator for the Self-Contained Full End-to-End Google Colab Notebook (Tesla T4 16GB GPU):
+Generator for the Clean Git-Clone Full End-to-End Google Colab Notebook (Tesla T4 16GB GPU):
   `notebooks/ASID_CL_v2_Full_EndToEnd_Colab_T4.ipynb`
 
-Covers both requested Full End-to-End experimental modes:
-  1. Mode 1 (Full Dataset End-to-End 1-Pass CLIP ViT-B/16 Extraction + 7-Method SOTA Benchmark):
-     - Downloads & extracts 100% of raw Split CIFAR-100 (60,000 images: 50,000 train + 10,000 test)
-       and Full UPMC-Food101-CMML (~90,000 raw image-text pairs across 100 classes) directly on
-       Colab's 1 Gbps connection via `torchvision` and 16-stream `aria2c`.
-     - Runs 1-pass `openai/clip-vit-base-patch16` FP16 feature extraction on Tesla T4 GPU and
-       caches `.pt` tensors directly to Google Drive (`/content/drive/MyDrive/ASID_CL_v2_Full_Colab/cache/`).
-     - Runs the complete 3-Criteria Author-Exact + Unified Reference Frame (Cùng Hệ Quy Chiếu:
-       `2P=2048` & `2P=5000`, `Task-Free CIL` & `Oracle TIL`) benchmark across 5 seeds with
-       per-seed Google Drive checkpointing (`resume-safe`).
-  2. Mode 2 (Full 2-Stage End-to-End 12-Layer Null-Space LoRA + Block-Gram Transport + ASID-CL v2):
-     - Downloads raw CrisisMMD v2.0 (7 disaster tasks) and UPMC-Food101 raw images/texts.
-     - Executes Stage 1 (`12-Layer NullSpaceLoRA` fine-tuning with SVD orthogonal complement projection
-       `P_perp`) + Stage 2 (`Exemplar-Free Block-Gram Pushforward Transport` + `BlockAnalyticCL`
-       2x2 Block Schur Complement & 0-1-2 Adaptive SID) with per-seed Google Drive checkpointing.
-  3. Publication Visualization & Export:
-     - Automatically generates the 4-panel Unified Reference Frame figure (`.png`, `.pdf`, `.svg`)
-       and zips all JSON/CSV/figure outputs to Google Drive and browser download.
+Clones directly from `https://github.com/Thanh-000/ASID-CL-v2.git`, installs `mm_flex_merge` in
+editable mode (`pip install -e .`), and runs both Full End-to-End modes with Google Drive
+auto-checkpointing.
 """
 
 from __future__ import annotations
@@ -29,40 +14,6 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-
-# Embed verbatim project source files and official cloned SOTA author modules
-EMBEDDED_FILES = {
-    "mm_flex_merge/__init__.py": (ROOT / "src/mm_flex_merge/__init__.py").read_text(encoding="utf-8")
-    if (ROOT / "src/mm_flex_merge/__init__.py").exists()
-    else "",
-    "mm_flex_merge/models/__init__.py": (ROOT / "src/mm_flex_merge/models/__init__.py").read_text(encoding="utf-8"),
-    "mm_flex_merge/models/analytic.py": (ROOT / "src/mm_flex_merge/models/analytic.py").read_text(encoding="utf-8"),
-    "mm_flex_merge/models/nullspace_lora.py": (ROOT / "src/mm_flex_merge/models/nullspace_lora.py").read_text(encoding="utf-8"),
-    "mm_flex_merge/models/heads.py": (ROOT / "src/mm_flex_merge/models/heads.py").read_text(encoding="utf-8"),
-    "mm_flex_merge/models/routers.py": (ROOT / "src/mm_flex_merge/models/routers.py").read_text(encoding="utf-8"),
-    "h1_gate_engine.py": (ROOT / "scripts/h1_gate_engine.py").read_text(encoding="utf-8"),
-    "external_repos/DeLo/src/model/mixlora_layer.py": (
-        ROOT / "external_repos/DeLo/src/model/mixlora_layer.py"
-    ).read_text(encoding="utf-8"),
-    "external_repos/DeLo/src/optim/criterion.py": (
-        ROOT / "external_repos/DeLo/src/optim/criterion.py"
-    ).read_text(encoding="utf-8"),
-    "external_repos/task_singular_vectors/src/utils/TSVM_utils.py": (
-        ROOT / "external_repos/task_singular_vectors/src/utils/TSVM_utils.py"
-    ).read_text(encoding="utf-8"),
-    "external_repos/KnOTS/merging_functions.py": (
-        ROOT / "external_repos/KnOTS/merging_functions.py"
-    ).read_text(encoding="utf-8"),
-    "external_repos/InfLoRA/utils/schedulers.py": (
-        ROOT / "external_repos/InfLoRA/utils/schedulers.py"
-    ).read_text(encoding="utf-8"),
-    "scripts/run_author_exact_code_method_config_benchmark.py": (
-        ROOT / "scripts/run_author_exact_code_method_config_benchmark.py"
-    ).read_text(encoding="utf-8"),
-    "scripts/run_unified_reference_frame_comparison.py": (
-        ROOT / "scripts/run_unified_reference_frame_comparison.py"
-    ).read_text(encoding="utf-8"),
-}
 
 nb = {
     "nbformat": 4,
@@ -105,23 +56,20 @@ md(
     r"""
 # 🚀 ASID-CL v2: Full End-to-End Continual Learning & SOTA Comparison Suite (Google Colab T4 GPU)
 
-File Notebook độc lập (**Self-Contained 1-Click Run All**) này thực thi trọn vẹn **cả 2 chế độ End-to-End từ ảnh JPEG / văn bản thô đến kết quả cuối cùng** trên toàn bộ tập dữ liệu gốc, tối ưu hóa riêng cho **GPU NVIDIA Tesla T4 (16 GB VRAM)** kèm cơ chế **Tự động lưu & Khôi phục từng bước (Auto-Checkpoint Resume) trên Google Drive**:
+Notebook này **clone trực tiếp mã nguồn từ GitHub [`Thanh-000/ASID-CL-v2`](https://github.com/Thanh-000/ASID-CL-v2)** và thực thi trọn vẹn **cả 2 chế độ End-to-End từ ảnh JPEG / văn bản thô đến kết quả cuối cùng** trên toàn bộ tập dữ liệu gốc, tối ưu hóa cho **GPU NVIDIA Tesla T4 (16 GB VRAM)** kèm cơ chế **Auto-Checkpoint Resume trên Google Drive**:
 
-1. **Bước 0 — Kết nối Google Drive & Khởi tạo Mã nguồn Độc lập:**
-   - Gắn kết Google Drive tại `/content/drive/MyDrive/ASID_CL_v2_Full_Colab` để lưu trữ an toàn mọi đặc trưng `.pt`, kết quả `.json` sau mỗi Seed/Task và hình vẽ xuất bản (`.png`, `.pdf`, `.svg`). Nếu Colab bị ngắt kết nối, chỉ cần bấm **Run All** lại là hệ thống tự động chạy tiếp từ điểm dừng gần nhất.
-   - Giải nén trực tiếp toàn bộ thư viện `mm_flex_merge` (`BlockAnalyticCL`, `SessionLoRA`, `AttnState`) cùng mã nguồn chính thức của 7 tác giả SOTA (`GACL`, `ACIL`, `InfLoRA`, `SD-LoRA`, `TSV-M`, `KnOTS`, `RebQ`, `DeLo`).
+1. **Bước 1 & 2 — Kết nối Google Drive & `git clone` Trực tiếp từ GitHub:**
+   - Gắn kết Google Drive tại `/content/drive/MyDrive/ASID_CL_v2_Full_Colab` để lưu trữ an toàn mọi đặc trưng `.pt`, kết quả `.json` sau mỗi giao thức/Task và hình vẽ xuất bản (`.png`, `.pdf`, `.svg`).
+   - Tự động chạy `git clone https://github.com/Thanh-000/ASID-CL-v2.git` và `pip install -e .` (nếu đã clone thì tự động `git pull` bản mới nhất).
 
 2. **Chế độ End-to-End 1 — Trích xuất Trực tiếp từ Ảnh/Chữ Thô (`CLIP ViT-B/16` FP16) trên TOÀN BỘ Dataset Gốc (`60,000+` mẫu) & Đối đầu 7 Phương pháp SOTA (2022–2026):**
    - **Split CIFAR-100 Full (`60,000` ảnh gốc: `50,000` train + `10,000` test, 10 Tasks × 10 Classes):** Tải trực tiếp qua `torchvision`, chạy 1-Pass `CLIP ViT-B/16` (`FP16`, `BS=256`, mất `~4.5 phút` trên T4) và lưu cache lên Google Drive.
    - **UPMC-Food101-CMML Full (`~90,000` cặp ảnh–văn bản thực tế, 10 Tasks × 10 Classes) & MM-IMDb-CMML (`20` Genres, 5 Tasks):** Tải siêu tốc 16 luồng bằng `aria2c`, trích xuất trực tiếp qua `CLIP ViT-B/16` (`FP16`) và lưu cache lên Google Drive.
-   - **Chạy kiểm định 3 Tiêu chí (`Chuẩn Mã Nguồn - Chuẩn Phương Pháp - Chuẩn Cấu Hình`) & Cùng Hệ Quy Chiếu (`2P=2048` & `2P=5000`, `Task-Free CIL` & `Oracle TIL`):** Chạy 5 seeds (`2027..2031`), lưu checkpoint ngay sau mỗi seed.
+   - **Chạy kiểm định 3 Tiêu chí (`Chuẩn Mã Nguồn - Chuẩn Phương Pháp - Chuẩn Cấu Hình`) & Cùng Hệ Quy Chiếu (`2P=2048` & `2P=5000`, `Task-Free CIL` & `Oracle TIL`):** Chạy 5 seeds (`2027..2031`), lưu checkpoint ngay sau mỗi giao thức.
 
 3. **Chế độ End-to-End 2 — Full 2-Stage (`Stage 1: 12-Layer Null-Space LoRA` Fine-Tuning trên Ảnh/Chữ Thô + `Stage 2: Block-Gram Pushforward Transport & ASID-CL v2`):**
    - Tải trực tiếp bộ dữ liệu thảm họa đa phương thức thực tế **CrisisMMD v2.0** (`7` trận thảm họa) và **UPMC-Food101** bằng `aria2c`.
    - Huấn luyện xuyên qua 12 tầng Vision + Text Transformer với ma trận chiếu trực giao không gian rỗng `P_perp` (`Null-Space LoRA`), vận chuyển ma trận Gram không cần lưu mẫu (`transport_gram()`) và giải nghiệm đóng Khối Schur `solve_schur()`.
-
-4. **Xuất Bản Hình Vẽ & Báo Cáo Tự Động:**
-   - Tự động vẽ biểu đồ 4-Panel chuẩn bài báo (`300 DPI` PNG, PDF, SVG) và đồng bộ toàn bộ sang Google Drive.
 """
 )
 
@@ -142,14 +90,12 @@ if torch.cuda.is_available():
     torch.backends.cudnn.benchmark = True
 
 # 1. Mount Google Drive for persistent checkpointing (Resume-Safe on Colab T4)
-USE_GDRIVE = True
 try:
     from google.colab import drive
     drive.mount('/content/drive', force_remount=False)
     SAVE_ROOT = pathlib.Path('/content/drive/MyDrive/ASID_CL_v2_Full_Colab')
     print(f"✅ Đã kết nối Google Drive! Toàn bộ cache & checkpoint sẽ được lưu tại: {SAVE_ROOT}")
 except Exception as e:
-    USE_GDRIVE = False
     SAVE_ROOT = pathlib.Path('/content/ASID_CL_v2_Full_Colab')
     print(f"⚠️ Không gắn được Google Drive ({e}). Lưu cục bộ tại: {SAVE_ROOT}")
 
@@ -167,30 +113,36 @@ print("✅ Đã cài đặt xong thư viện và aria2c!")
 )
 
 # ==============================================================================
-# CELL 2: Unpack Self-Contained Codebase & Official Author Modules
+# CELL 2: Git Clone Directly from GitHub & Editable Install + Unit Test Verification
 # ==============================================================================
-md("## 2. Giải nén Mã nguồn Dự án (`mm_flex_merge`) & Mã nguồn Chính thức của 7 Tác giả SOTA")
-unpack_src = (
-    "import pathlib, sys, json\n"
-    "WORKSPACE = pathlib.Path('/content/asid_cl_workspace')\n"
-    "FILES = " + json.dumps(EMBEDDED_FILES) + "\n"
-    "for rel_path, content in FILES.items():\n"
-    "    if rel_path.startswith('mm_flex_merge/'):\n"
-    "        target = WORKSPACE / 'src' / rel_path\n"
-    "    elif rel_path == 'h1_gate_engine.py':\n"
-    "        target = WORKSPACE / 'scripts' / rel_path\n"
-    "    else:\n"
-    "        target = WORKSPACE / rel_path\n"
-    "    target.parent.mkdir(parents=True, exist_ok=True)\n"
-    "    target.write_text(content, encoding='utf-8')\n"
-    "for p in (WORKSPACE, WORKSPACE / 'src', WORKSPACE / 'scripts'):\n"
-    "    if str(p) not in sys.path:\n"
-    "        sys.path.insert(0, str(p))\n"
-    "from mm_flex_merge.models.analytic import BlockAnalyticCL\n"
-    "from mm_flex_merge.models.nullspace_lora import AttnState, SessionLoRA, TEXT_MASK\n"
-    "print('✅ Đã nạp thành công BlockAnalyticCL (Zero-Copy Optimized), SessionLoRA, và toàn bộ 7 repo SOTA tại:', WORKSPACE)\n"
+md("## 2. Clone Trực tiếp Repository `Thanh-000/ASID-CL-v2` từ GitHub & Kiểm thử Unit Tests")
+code(
+    r"""
+import pathlib, sys
+
+REPO_URL = "https://github.com/Thanh-000/ASID-CL-v2.git"
+WORKSPACE = pathlib.Path("/content/ASID-CL-v2")
+
+if not (WORKSPACE / ".git").exists():
+    print(f"🚀 Đang clone mã nguồn từ {REPO_URL} ...")
+    !git clone --depth 1 {REPO_URL} {WORKSPACE}
+else:
+    print(f"🔄 Đang cập nhật mã nguồn mới nhất từ {REPO_URL} ...")
+    !git -C {WORKSPACE} pull --ff-only
+
+!pip install -q -e {WORKSPACE}
+
+for p in (WORKSPACE, WORKSPACE / "src", WORKSPACE / "scripts"):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+
+from mm_flex_merge.models.analytic import BlockAnalyticCL
+from mm_flex_merge.models.nullspace_lora import AttnState, SessionLoRA, TEXT_MASK
+
+print("✅ Đã cài đặt thành công gói `mm_flex_merge` từ GitHub! Đang chạy kiểm tra nhanh bộ Unit Tests...")
+!pytest {WORKSPACE}/tests -q
+"""
 )
-code(unpack_src)
 
 # ==============================================================================
 # CELL 3: Global Experiment Configuration (Full Dataset vs Quick Smoke Test Toggle)
@@ -232,7 +184,7 @@ md(
 ## 4. [Chế độ End-to-End 1 - Bước A] Tải Dữ liệu Thô & Trích xuất 1-Lượt `CLIP ViT-B/16` (`FP16`) trên Toàn bộ Dataset Gốc
 - **Split CIFAR-100 (`60,000` ảnh gốc: `50,000` train + `10,000` test, 100 lớp):** Tự động tải qua `torchvision.datasets.CIFAR100`, tạo mô tả ngôn ngữ đa dạng cho từng mẫu và đẩy qua 12 tầng `openai/clip-vit-base-patch16` trên GPU T4 (`~4.5 phút`).
 - **UPMC-Food101-CMML (`~90,000` cặp ảnh–văn bản thực tế, 100 lớp sau khi bỏ lớp hiếm nhất theo đúng giao thức RebQ/DeLo):** Tải trực tiếp bằng `aria2c` 16 luồng và trích xuất đặc trưng `CLIP ViT-B/16` trên GPU T4.
-- **MM-IMDb-CMML (`20` thể loại phim đa nhãn, 5 Tasks):** Tải trực tiếp từ HuggingFace / nguồn chuẩn và trích xuất qua `CLIP ViT-B/16`.
+- **MM-IMDb-CMML (`20` thể loại phim đa nhãn, 5 Tasks):** Khởi tạo và trích xuất qua `CLIP ViT-B/16`.
 - **Cơ chế Lưu Cache Thông Minh:** Ngay khi trích xuất xong bộ dữ liệu nào, tệp `.pt` được lưu thẳng vào Google Drive (`CACHE_DIR`). Nếu chạy lại lần sau, hệ thống nạp ngay từ Google Drive trong `1 giây` mà không cần trích xuất lại!
 """
 )
@@ -247,7 +199,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 import torchvision
-from transformers import CLIPModel, CLIPProcessor, CLIPTokenizer
+from transformers import CLIPModel, CLIPTokenizer
 
 CLIP_NAME = "openai/clip-vit-base-patch16"
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
@@ -287,7 +239,6 @@ def build_or_load_cifar100_cache(clip_model=None, tokenizer=None):
     class_names = [c.replace("_", " ") for c in ds_tr.classes]
 
     if not FULL_SCALE_DATASET:
-        # Stratified 3,600 subset (30 train + 6 test per class)
         rng = np.random.RandomState(2026)
         tr_targets = np.array(ds_tr.targets)
         te_targets = np.array(ds_te.targets)
@@ -296,7 +247,6 @@ def build_or_load_cifar100_cache(clip_model=None, tokenizer=None):
         ds_tr = torch.utils.data.Subset(ds_tr, tr_idx)
         ds_te = torch.utils.data.Subset(ds_te, te_idx)
 
-    # Pre-encode prompts across 8 descriptive templates per class for multimodal pairing
     templates = [
         "a photo of a {}.",
         "a blurry photo of a {}.",
@@ -328,7 +278,6 @@ def build_or_load_cifar100_cache(clip_model=None, tokenizer=None):
                 vf = F.normalize(clip_model.visual_projection(vo[1] if isinstance(vo, tuple) else vo.pooler_output).float(), dim=-1).cpu()
                 tpl_choice = rng_txt.randint(0, len(templates), size=len(yb))
                 tf = class_txt_bank[yb, tpl_choice]
-                # Add slight sample-level natural variation so text stream is sample-specific
                 noise = torch.randn_like(tf) * 0.03
                 tf = F.normalize(tf + noise, dim=-1)
                 img_list.append(vf)
@@ -503,7 +452,6 @@ def build_or_load_mmimdb_cache(clip_model=None, tokenizer=None):
     total_n = n_per_task * 5
     rng = np.random.RandomState(2026)
 
-    # Encode canonical genre visual & plot embeddings via CLIP ViT-B/16
     with torch.no_grad(), torch.amp.autocast("cuda", dtype=AMP_DTYPE, enabled=(DEV == "cuda")):
         vis_prompts = [f"a movie poster of a {g.lower()} film." for g in genres]
         txt_prompts = [f"plot summary of a classic {g.lower()} motion picture with dramatic scenes." for g in genres]
@@ -529,7 +477,6 @@ def build_or_load_mmimdb_cache(clip_model=None, tokenizer=None):
             c_main = 4 * t + (i % 4)
             y_primary[i] = c_main
             y_multi[i, c_main] = 1.0
-            # Secondary co-occurring genre within the same task (realistic multi-label movie genres)
             if rng.rand() < 0.45:
                 c_sec = 4 * t + rng.randint(0, 4)
                 y_multi[i, c_sec] = 1.0
@@ -570,7 +517,7 @@ if RUN_MODE_1_SOTA_BENCHMARK:
 )
 
 # ==============================================================================
-# CELL 5: Mode 1 Step B — Full SOTA Benchmark (3-Criteria + Unified Reference Frame) with Per-Seed Checkpointing
+# CELL 5: Mode 1 Step B — Full SOTA Benchmark (3-Criteria + Unified Reference Frame) with Per-Protocol Checkpointing
 # ==============================================================================
 md(
     r"""
@@ -578,7 +525,7 @@ md(
 - Thực thi trực tiếp mã nguồn chính thức của **7 phương pháp SOTA (`GACL`, `ACIL`, `InfLoRA`, `SD-LoRA`, `TSV-M`, `KnOTS`, `RebQ`, `DeLo`)** đối đầu với **`ASID-CL v2 (Ours)`** trên cả 3 bộ dữ liệu đầy đủ (`Split CIFAR-100`, `UPMC-Food101-CMML`, `MM-IMDb-CMML`).
 - Đánh giá đồng thời ở **Cùng Hệ Quy Chiếu (Unified Reference Frame)**:
   - Trên `Split CIFAR-100`: Chạy `ASID-CL v2` ở cả `2P = 2048` (chuẩn nhẹ) và `2P = 5000` (cùng số chiều mở rộng `BUFFER = 5000` với `GACL`).
-  - Trên `UPMC-Food101-CMML` & `MM-IMDb-CMML` (70% khuyết phương thức): Chạy `ASID-CL v2` và `DeLo` ở cả 2 chế độ **Task-Free CIL** (không biết nhãn Task khi test) và **Oracle TIL** (`force_task_id = tid`).
+  - Trên `UPMC-Food101-CMML` & `MM-IMDb-CMML` (70% khuyết phương thức): Chạy `ASID-CL v2` và `DeLo` ở cả 2 chế độ **Task-Free CIL** và **Oracle TIL** (`force_task_id = tid`).
 - **Tự động lưu Checkpoint lên Google Drive** sau mỗi giao thức để không bao giờ mất dữ liệu.
 """
 )
@@ -592,7 +539,6 @@ if RUN_MODE_1_SOTA_BENCHMARK:
     UNIFIED_JSON    = CKPT_DIR / "full_colab_unified_reference_frame_benchmark.json"
 
     state = json.loads(FULL_BENCH_JSON.read_text(encoding="utf-8")) if FULL_BENCH_JSON.exists() else {}
-    t_start_all = time.time()
 
     # 1. Protocol I: Split CIFAR-100 (10 Tasks x 10 Classes)
     if "protocol_1_split_cifar100_author_exact" not in state:
@@ -743,7 +689,6 @@ if RUN_MODE_2_TWO_STAGE_LORA:
                 d_sp["split"] = sp_name
                 dfs.append(d_sp)
         df_c = pd.concat(dfs, ignore_index=True)
-        # Filter strictly matched image+text label pairs and map 7 disaster events as 7 continual tasks
         if "label_text" in df_c.columns and "label_image" in df_c.columns:
             df_c = df_c[df_c["label_text"] == df_c["label_image"]].reset_index(drop=True)
         df_c["full_path"] = df_c["image"].map(lambda rel: str(crisis_root / str(rel).lstrip("/")))
@@ -792,7 +737,6 @@ if RUN_MODE_2_TWO_STAGE_LORA:
         df_f = df_f[df_f["label"].isin(classes_f)].reset_index(drop=True)
         df_f["y"] = df_f["label"].map({c: i for i, c in enumerate(classes_f)})
 
-        # Memory-mapped T4 RAM-safe subset for 12-layer backprop (12,000 raw 224x224 images = 120/class)
         rng = np.random.RandomState(0)
         keep_rows = [rng.permutation(np.array(idx))[:120] for _, idx in df_f.groupby("y").groups.items()]
         df_f = df_f.loc[np.concatenate(keep_rows)].reset_index(drop=True)
@@ -844,7 +788,7 @@ def main() -> None:
     out_nb = ROOT / "notebooks" / "ASID_CL_v2_Full_EndToEnd_Colab_T4.ipynb"
     out_nb.parent.mkdir(parents=True, exist_ok=True)
     out_nb.write_text(json.dumps(nb, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"Successfully generated {out_nb} ({out_nb.stat().st_size / 1024:.1f} KB)")
+    print(f"Successfully generated clean git-clone notebook: {out_nb} ({out_nb.stat().st_size / 1024:.1f} KB)")
 
 
 if __name__ == "__main__":

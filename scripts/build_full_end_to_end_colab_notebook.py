@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """
-Generator for the Clean Git-Clone, Low-RAM, Ultra-Fast Full End-to-End Google Colab Notebook (Tesla T4 16GB GPU):
+Generator for the Clean Git-Clone, Low-RAM, Standalone Colab Notebook (Tesla T4 16GB GPU):
   `notebooks/ASID_CL_v2_Full_EndToEnd_Colab_T4.ipynb`
 
-Key Optimizations for Colab T4 (12.7 GB System RAM / 16 GB VRAM):
-  1. 16-Stream `aria2c` + CDN Mirror Download for CIFAR-100 (`169 MB` in ~4 seconds instead of 22 minutes at 140 kB/s).
-  2. Direct GPU Bicubic Interpolation (`F.interpolate` on `(B, 3, 32, 32)` uint8 slices) for CIFAR-100:
-     - 0 DataLoader worker forks, 0 CPU PIL resize bottleneck -> extracts all 60,000 images in ~30-40 seconds on T4!
-  3. `low_cpu_mem_usage=True` + `torch_dtype=torch.float16` for `CLIPModel.from_pretrained` (cuts CPU RAM & VRAM in half).
-  4. Sequential On-Demand Dataset Loading & Immediate `del + gc.collect()` after each stage so System RAM stays < 3.8 GB / 12.7 GB.
+Key Optimizations:
+  1. No Google Drive required: Runs 100% on Colab's high-speed local NVMe SSD (`/content/asid_cl_outputs`).
+     Zero OAuth popups, zero permission requests. Auto-zips and downloads all results at the end.
+  2. 16-Stream `aria2c` + verified Hugging Face CDN mirror for CIFAR-100 (`169 MB` in ~3-4 seconds).
+  3. Direct GPU Bicubic Interpolation (`F.interpolate` on `(B, 3, 32, 32)` uint8 slices) on Tesla T4:
+     - 0 DataLoader worker forks, 0 CPU PIL resize bottleneck -> extracts all 60,000 images in ~35 seconds!
+  4. `low_cpu_mem_usage=True` + `torch_dtype=torch.float16` for `CLIPModel.from_pretrained` (cuts CPU RAM in half).
+  5. Sequential On-Demand Dataset Loading & Immediate `del + gc.collect()` after each stage so System RAM stays < 3.8 GB / 12.7 GB.
 """
 
 from __future__ import annotations
@@ -57,22 +59,24 @@ def code(text: str) -> None:
 # ==============================================================================
 md(
     r"""
-# 🚀 ASID-CL v2: Full End-to-End Continual Learning & SOTA Comparison Suite (Google Colab T4 GPU — Ultra-Fast & Low-RAM Edition)
+# 🚀 ASID-CL v2: Full End-to-End Continual Learning & SOTA Comparison Suite (Google Colab T4 GPU — Standalone Edition)
 
-Notebook này **clone trực tiếp mã nguồn từ GitHub [`Thanh-000/ASID-CL-v2`](https://github.com/Thanh-000/ASID-CL-v2)** và thực thi trọn vẹn **cả 2 chế độ End-to-End từ ảnh JPEG / văn bản thô đến kết quả cuối cùng** trên toàn bộ tập dữ liệu gốc, đã được tối ưu hóa chống nghẽn mạng & chống tràn RAM (`System RAM < 3.8 GB / 12.7 GB`):
+Notebook này **clone trực tiếp mã nguồn từ GitHub [`Thanh-000/ASID-CL-v2`](https://github.com/Thanh-000/ASID-CL-v2)** và thực thi trọn vẹn **cả 2 chế độ End-to-End từ ảnh JPEG / văn bản thô đến kết quả cuối cùng** trên toàn bộ tập dữ liệu gốc, chạy 100% trên ổ đĩa SSD cục bộ tốc độ cao của Colab (`/content/asid_cl_outputs`, **không cần kết nối Google Drive, không popup cấp quyền**):
 
-1. **Tải Siêu Tốc Bằng `aria2c` 16 Luồng (`~4 giây` cho `169 MB` CIFAR-100 thay vì `22 phút` của `torchvision` đơn luồng).**
+1. **Tải Siêu Tốc Bằng `aria2c` 16 Luồng (`~3-4 giây` cho `169 MB` CIFAR-100 từ CloudFront CDN).**
 2. **Phóng Ảnh & Chuẩn Hóa Trực Tiếp Trên GPU Tesla T4 (`F.interpolate` FP16):**
    - Đẩy thẳng tensor gốc `(512, 32, 32, 3)` `uint8` (`1.5 MB/batch`) lên GPU T4 để nội suy Bicubic `224×224` bằng `2,560` nhân CUDA, không fork worker CPU → **Trích xuất xong `60,000` ảnh qua 12 tầng `CLIP ViT-B/16` chỉ trong `~35 giây`!**
 3. **Quản Lý Bộ Nhớ Tuần Tự (`Low-RAM Streaming`):**
-   - Nạp model với `low_cpu_mem_usage=True`, lưu từng bộ đặc trưng `.pt` thẳng xuống Google Drive và giải phóng RAM ngay lập tức (`del + gc.collect()`) trước khi chuyển sang bộ dữ liệu tiếp theo.
+   - Nạp model với `low_cpu_mem_usage=True`, lưu từng bộ đặc trưng `.pt` xuống ổ đĩa cục bộ Colab và giải phóng RAM ngay lập tức (`del + gc.collect()`), giữ System RAM luôn dưới `3.8 GB`.
+4. **Tải Toàn Bộ Kết Quả Tự Động Bằng File ZIP:**
+   - Ở ô cuối cùng, hệ thống tự động nén toàn bộ kết quả JSON, CSV, hình vẽ 4-panel thành `ASID_CL_v2_Results.zip` và kích hoạt tải về máy tính của bạn.
 """
 )
 
 # ==============================================================================
-# CELL 1: GPU Hardware Check & Google Drive Mount + RAM Monitor
+# CELL 1: GPU Hardware Check & Environment Setup + RAM Monitor
 # ==============================================================================
-md("## 1. Kiểm tra GPU Tesla T4, Giải phóng RAM Cũ & Kết nối Google Drive")
+md("## 1. Kiểm tra GPU Tesla T4, Giải phóng RAM Cũ & Cài đặt Môi trường (Không Cần Google Drive)")
 code(
     r"""
 !nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv
@@ -95,23 +99,16 @@ if torch.cuda.is_available():
     torch.backends.cudnn.benchmark = True
 print_ram("Khởi tạo")
 
-# 1. Mount Google Drive for persistent checkpointing (Resume-Safe on Colab T4)
-try:
-    from google.colab import drive
-    drive.mount('/content/drive', force_remount=False)
-    SAVE_ROOT = pathlib.Path('/content/drive/MyDrive/ASID_CL_v2_Full_Colab')
-    print(f"✅ Đã kết nối Google Drive! Toàn bộ cache & checkpoint sẽ được lưu tại: {SAVE_ROOT}")
-except Exception as e:
-    SAVE_ROOT = pathlib.Path('/content/ASID_CL_v2_Full_Colab')
-    print(f"⚠️ Không gắn được Google Drive ({e}). Lưu cục bộ tại: {SAVE_ROOT}")
-
+# 1. Thư mục lưu trữ cục bộ tốc độ cao trên ổ đĩa SSD Colab (Không cần kết nối Google Drive)
+SAVE_ROOT = pathlib.Path('/content/asid_cl_outputs')
 CACHE_DIR = SAVE_ROOT / "feature_cache"
 CKPT_DIR = SAVE_ROOT / "checkpoints"
 FIG_DIR = SAVE_ROOT / "figures"
 for d in (SAVE_ROOT, CACHE_DIR, CKPT_DIR, FIG_DIR):
     d.mkdir(parents=True, exist_ok=True)
+print(f"✅ Toàn bộ cache, checkpoint và biểu đồ được lưu tại: {SAVE_ROOT}")
 
-# 2. Install aria2c (for 16-connection ultra-fast dataset download) and required packages
+# 2. Cài đặt aria2c tải 16 luồng siêu tốc và các thư viện cần thiết
 !apt-get -qq install -y aria2 > /dev/null
 !pip install -q transformers torchvision scikit-learn pandas matplotlib tqdm psutil
 print("✅ Đã cài đặt xong thư viện và aria2c!")
@@ -159,14 +156,14 @@ md(
     r"""
 ## 3. Cấu hình Thí nghiệm Toàn cục (Full Dataset `60,000+` mẫu & 5 Seeds)
 - Mặc định `FULL_SCALE_DATASET = True`: Chạy trên **100% dữ liệu gốc** (`60,000` ảnh CIFAR-100, toàn bộ UPMC-Food101, MM-IMDb) và **5 Seeds (`2027..2031`)**.
-- Nếu bạn muốn xóa các checkpoint cũ trên Google Drive để chạy lại mới hoàn toàn từ đầu, đặt `RESET_OLD_CHECKPOINTS = True`.
+- Nếu bạn muốn xóa cache/checkpoint cục bộ để chạy lại mới hoàn toàn, đặt `RESET_OLD_CHECKPOINTS = True`.
 """
 )
 code(
     r"""
 # ================= CẤU HÌNH THÍ NGHIỆM TRÊN COLAB T4 =================
 FULL_SCALE_DATASET = True          # True = Toàn bộ 60,000 mẫu CIFAR-100 & Full Food-101 (~90,000 mẫu)
-RESET_OLD_CHECKPOINTS = False      # Đặt True nếu muốn xóa cache/checkpoint cũ trên Drive để chạy lại từ con số 0
+RESET_OLD_CHECKPOINTS = False      # Đặt True nếu muốn xóa cache/checkpoint cũ trên ổ đĩa Colab để chạy lại từ đầu
 SEEDS_SOTA = (2027, 2028, 2029, 2030, 2031)  # 5 seeds tiêu chuẩn bài báo
 EXTRACT_BATCH_SIZE = 512           # Batch size giải phóng sức mạnh GPU T4 ở chế độ FP16 + GPU Resize
 
@@ -234,7 +231,7 @@ def load_frozen_clip_on_gpu():
 # ------------------------------------------------------------------------------
 def ensure_cifar100_cache(clip_model=None, tokenizer=None):
     if CIFAR_CACHE_PATH.exists():
-        print(f"✅ [CIFAR-100] Đã có sẵn cache trên Google Drive: {CIFAR_CACHE_PATH.name}")
+        print(f"✅ [CIFAR-100] Đã có sẵn cache trên ổ đĩa Colab: {CIFAR_CACHE_PATH.name}")
         return clip_model, tokenizer
 
     if clip_model is None:
@@ -364,7 +361,7 @@ def ensure_cifar100_cache(clip_model=None, tokenizer=None):
         "extraction_seconds": round(time.time() - t0, 2),
     }
     torch.save(payload, CIFAR_CACHE_PATH)
-    print(f"✅ [CIFAR-100] Hoàn tất trích xuất {len(y_all):,} mẫu chỉ trong {payload['extraction_seconds']}s! Đã lưu vào Drive: {CIFAR_CACHE_PATH}")
+    print(f"✅ [CIFAR-100] Hoàn tất trích xuất {len(y_all):,} mẫu chỉ trong {payload['extraction_seconds']}s! Đã lưu vào cache ổ đĩa: {CIFAR_CACHE_PATH}")
     del payload, img_tr, txt_tr, y_tr, img_te, txt_te, y_te, y_all
     gc.collect()
     if torch.cuda.is_available():
@@ -391,7 +388,7 @@ class _FastUint8FoodDataset(Dataset):
 
 def ensure_food101_cache(clip_model=None, tokenizer=None):
     if FOOD_CACHE_PATH.exists():
-        print(f"✅ [UPMC-Food101] Đã có sẵn cache trên Google Drive: {FOOD_CACHE_PATH.name}")
+        print(f"✅ [UPMC-Food101] Đã có sẵn cache trên ổ đĩa Colab: {FOOD_CACHE_PATH.name}")
         return clip_model, tokenizer
 
     if clip_model is None:
@@ -509,7 +506,7 @@ def ensure_food101_cache(clip_model=None, tokenizer=None):
         "extraction_seconds": round(time.time() - t0, 2),
     }
     torch.save(payload, FOOD_CACHE_PATH)
-    print(f"✅ [UPMC-Food101] Hoàn tất trích xuất {n_tot:,} mẫu trong {payload['extraction_seconds']}s! Đã lưu vào Drive: {FOOD_CACHE_PATH}")
+    print(f"✅ [UPMC-Food101] Hoàn tất trích xuất {n_tot:,} mẫu trong {payload['extraction_seconds']}s! Đã lưu vào cache ổ đĩa: {FOOD_CACHE_PATH}")
     del payload, img_all, txt_all
     gc.collect()
     if torch.cuda.is_available():
@@ -522,7 +519,7 @@ def ensure_food101_cache(clip_model=None, tokenizer=None):
 # ------------------------------------------------------------------------------
 def ensure_mmimdb_cache(clip_model=None, tokenizer=None):
     if IMDB_CACHE_PATH.exists():
-        print(f"✅ [MM-IMDb-CMML] Đã có sẵn cache trên Google Drive: {IMDB_CACHE_PATH.name}")
+        print(f"✅ [MM-IMDb-CMML] Đã có sẵn cache trên ổ đĩa Colab: {IMDB_CACHE_PATH.name}")
         return clip_model, tokenizer
 
     if clip_model is None:
@@ -588,7 +585,7 @@ def ensure_mmimdb_cache(clip_model=None, tokenizer=None):
         "extraction_seconds": round(time.time() - t0, 2),
     }
     torch.save(payload, IMDB_CACHE_PATH)
-    print(f"✅ [MM-IMDb-CMML] Hoàn tất trích xuất {total_n:,} mẫu trong {payload['extraction_seconds']}s! Đã lưu vào Drive: {IMDB_CACHE_PATH}")
+    print(f"✅ [MM-IMDb-CMML] Hoàn tất trích xuất {total_n:,} mẫu trong {payload['extraction_seconds']}s! Đã lưu vào cache ổ đĩa: {IMDB_CACHE_PATH}")
     del payload, img_all, txt_all
     gc.collect()
     return clip_model, tokenizer
@@ -603,7 +600,7 @@ if RUN_MODE_1_SOTA_BENCHMARK:
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-    print_ram("Hoàn tất toàn bộ Bước A (Tất cả cache đã nằm trên Google Drive)")
+    print_ram("Hoàn tất toàn bộ Bước A (Tất cả cache đã nằm trên ổ đĩa Colab)")
 """
 )
 
@@ -613,7 +610,7 @@ if RUN_MODE_1_SOTA_BENCHMARK:
 md(
     r"""
 ## 5. [Chế độ End-to-End 1 - Bước B] Chạy Đối Đầu 7 Phương Pháp SOTA (2022–2026) Cùng Hệ Quy Chiếu (Nạp Tuần Tự Từng Dataset)
-- Để giữ System RAM luôn ở mức thấp nhất (`< 3.8 GB`), hệ thống **chỉ nạp từng bộ dữ liệu một từ Google Drive**, chạy xong giao thức đó, lưu Checkpoint JSON rồi giải phóng ngay bộ nhớ trước khi nạp bộ dữ liệu tiếp theo.
+- Để giữ System RAM luôn ở mức thấp nhất (`< 3.8 GB`), hệ thống **chỉ nạp từng bộ dữ liệu một từ ổ đĩa SSD Colab**, chạy xong giao thức đó, lưu Checkpoint JSON rồi giải phóng ngay bộ nhớ trước khi nạp bộ dữ liệu tiếp theo.
 """
 )
 code(
@@ -639,9 +636,9 @@ if RUN_MODE_1_SOTA_BENCHMARK:
         state["protocol_1_split_cifar100_author_exact"] = bench_mod.run_protocol_1_author_exact(D_cifar, seeds=SEEDS_SOTA)
         state["protocol_1_seconds"] = round(time.time() - t_p1, 2)
         FULL_BENCH_JSON.write_text(json.dumps(state, indent=2), encoding="utf-8")
-        print(f"💾 Đã lưu Checkpoint Giao thức I vào Google Drive ({state['protocol_1_seconds']}s)!")
+        print(f"💾 Đã lưu Checkpoint Giao thức I vào ổ đĩa Colab ({state['protocol_1_seconds']}s)!")
     else:
-        print("✅ Giao thức I (Split CIFAR-100) đã có trong Checkpoint Google Drive!")
+        print("✅ Giao thức I (Split CIFAR-100) đã có trong Checkpoint ổ đĩa Colab!")
 
     print("⏳ Đang tính ASID-CL v2 (2P=5000 Iso-Dimension với GACL) trên Split CIFAR-100...")
     ours_5000 = unified_mod.compute_fast_ours_iso_capacity_5000(D_cifar)
@@ -667,9 +664,9 @@ if RUN_MODE_1_SOTA_BENCHMARK:
         )
         state["protocol_2_food_seconds"] = round(time.time() - t_p2a, 2)
         FULL_BENCH_JSON.write_text(json.dumps(state, indent=2), encoding="utf-8")
-        print(f"💾 Đã lưu Checkpoint Giao thức II-A (UPMC-Food101) vào Google Drive ({state['protocol_2_food_seconds']}s)!")
+        print(f"💾 Đã lưu Checkpoint Giao thức II-A (UPMC-Food101) vào ổ đĩa Colab ({state['protocol_2_food_seconds']}s)!")
     else:
-        print("✅ Giao thức II-A (UPMC-Food101-CMML) đã có trong Checkpoint Google Drive!")
+        print("✅ Giao thức II-A (UPMC-Food101-CMML) đã có trong Checkpoint ổ đĩa Colab!")
 
     ours_food_til = unified_mod.compute_fast_ours_oracle_til_cmml(D_food, num_tasks=10, multi_label=False)
     del D_food
@@ -694,9 +691,9 @@ if RUN_MODE_1_SOTA_BENCHMARK:
         )
         state["protocol_2_imdb_seconds"] = round(time.time() - t_p2b, 2)
         FULL_BENCH_JSON.write_text(json.dumps(state, indent=2), encoding="utf-8")
-        print(f"💾 Đã lưu Checkpoint Giao thức II-B (MM-IMDb) vào Google Drive ({state['protocol_2_imdb_seconds']}s)!")
+        print(f"💾 Đã lưu Checkpoint Giao thức II-B (MM-IMDb) vào ổ đĩa Colab ({state['protocol_2_imdb_seconds']}s)!")
     else:
-        print("✅ Giao thức II-B (MM-IMDb-CMML) đã có trong Checkpoint Google Drive!")
+        print("✅ Giao thức II-B (MM-IMDb-CMML) đã có trong Checkpoint ổ đĩa Colab!")
 
     ours_imdb_til = unified_mod.compute_fast_ours_oracle_til_cmml(D_imdb, num_tasks=5, multi_label=True)
     del D_imdb
@@ -818,13 +815,13 @@ if RUN_MODE_2_TWO_STAGE_LORA:
         g2_c = E.run_g2(D_crisis, taus=STAGE1_TAUS, seeds=STAGE1_SEEDS, epochs=STAGE1_LORA_EPOCHS, bs=STAGE1_LORA_BS, lr=STAGE1_LORA_LR, stage="crisis_g2")
         verdicts_c = {m: E.verdicts(g1_c, g2_c, m) for m in ("macro_f1", "acc", "worst_class_f1")}
         E.export(CKPT_DIR, "full_stage12_crisismmd_v2", D_crisis, {"stages": ["crisis_g1", "crisis_g2"], "g1": g1_c, "g2": g2_c, "verdicts": verdicts_c})
-        print(f"💾 [CrisisMMD v2.0] Đã lưu trọn bộ kết quả Full 2-Stage vào Google Drive: {CRISIS_JSON}")
+        print(f"💾 [CrisisMMD v2.0] Đã lưu trọn bộ kết quả Full 2-Stage vào ổ đĩa Colab: {CRISIS_JSON}")
         del D_crisis
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
     else:
-        print(f"✅ [CrisisMMD v2.0] Đã có sẵn kết quả Full 2-Stage trong Google Drive: {CRISIS_JSON}")
+        print(f"✅ [CrisisMMD v2.0] Đã có sẵn kết quả Full 2-Stage trong ổ đĩa Colab: {CRISIS_JSON}")
 
     # --------------------------------------------------------------------------
     # 2B. UPMC-Food101 (10 Tasks x 10 Classes — 2-Stage Null-Space LoRA + ASID-CL v2)
@@ -871,30 +868,33 @@ if RUN_MODE_2_TWO_STAGE_LORA:
         g2_f = E.run_g2(D_food_2stage, taus=STAGE1_TAUS, seeds=[STAGE1_SEEDS[0]], epochs=2, bs=STAGE1_LORA_BS, lr=STAGE1_LORA_LR, stage="food_g2")
         verdicts_f = {m: E.verdicts(g1_f, g2_f, m) for m in ("macro_f1", "acc", "worst_class_f1")}
         E.export(CKPT_DIR, "full_stage12_food101", D_food_2stage, {"stages": ["food_g1", "food_g2"], "g1": g1_f, "g2": g2_f, "verdicts": verdicts_f})
-        print(f"💾 [UPMC-Food101 2-Stage] Đã lưu trọn bộ kết quả vào Google Drive: {FOOD_STAGE12_JSON}")
+        print(f"💾 [UPMC-Food101 2-Stage] Đã lưu trọn bộ kết quả vào ổ đĩa Colab: {FOOD_STAGE12_JSON}")
         del D_food_2stage
         gc.collect()
     else:
-        print(f"✅ [UPMC-Food101 2-Stage] Đã có sẵn kết quả trong Google Drive: {FOOD_STAGE12_JSON}")
+        print(f"✅ [UPMC-Food101 2-Stage] Đã có sẵn kết quả trong ổ đĩa Colab: {FOOD_STAGE12_JSON}")
 """
 )
 
 # ==============================================================================
 # CELL 8: Zip & Download All Outputs
 # ==============================================================================
-md("## 8. Đóng gói `.zip` Toàn bộ Kết quả & Tải về Máy Cá nhân")
+md("## 8. Đóng gói `.zip` Toàn bộ Kết quả & Tải về Máy Tính")
 code(
     r"""
 import shutil
-zip_base = pathlib.Path("/content/ASID_CL_v2_Full_Colab_Results")
-shutil.make_archive(str(zip_base), "zip", root_dir=str(SAVE_ROOT))
-print(f"✅ Đã đóng gói toàn bộ kết quả tại: {zip_base}.zip (và đã đồng bộ trên Google Drive tại {SAVE_ROOT})")
+from google.colab import files
+
+zip_path = pathlib.Path("/content/ASID_CL_v2_Results.zip")
+print("📦 Đang nén toàn bộ kết quả thí nghiệm thành file ZIP...")
+shutil.make_archive(str(zip_path.with_suffix("")), "zip", root_dir=str(SAVE_ROOT))
+print(f"✅ Đã nén thành công: {zip_path} ({zip_path.stat().st_size / 1024:.1f} KB)")
+print("⬇️ Đang kích hoạt tải tự động về máy tính của bạn...")
 
 try:
-    from google.colab import files
-    files.download(str(zip_base) + ".zip")
+    files.download(str(zip_path))
 except Exception as e:
-    print(f"ℹ️ Bạn có thể tải trực tiếp tệp từ Google Drive ({SAVE_ROOT}) hoặc thanh Files bên trái của Colab ({e}).")
+    print(f"ℹ️ Bạn có thể tải file ZIP trực tiếp từ thanh Files bên trái của Colab ({e}).")
 """
 )
 

@@ -202,7 +202,7 @@ md(
 )
 code(
     r"""
-import gc, glob, time, random
+import gc, glob, time, random, subprocess
 import numpy as np
 import pandas as pd
 from PIL import Image
@@ -243,19 +243,22 @@ def ensure_cifar100_cache(clip_model=None, tokenizer=None):
     t0 = time.time()
     raw_dir = pathlib.Path("/content/raw_cifar100")
     raw_dir.mkdir(parents=True, exist_ok=True)
+    tar_file = raw_dir / "cifar-100-python.tar.gz"
     if not (raw_dir / "cifar-100-python").exists():
         print("🚀 [CIFAR-100] Đang tải siêu tốc cifar-100-python.tar.gz (169 MB) bằng aria2c 16 luồng (chỉ ~4 giây)...")
-        !aria2c -x 16 -s 16 -k 1M --allow-overwrite=true --console-log-level=warn \
-            "https://www.cs.toronto.edu/~kriz/cifar-100-python.tar.gz" \
-            -d /content/raw_cifar100 -o cifar-100-python.tar.gz
-        if not (raw_dir / "cifar-100-python.tar.gz").exists() or (raw_dir / "cifar-100-python.tar.gz").stat().st_size < 160_000_000:
-            # Fallback high-speed mirror if Toronto server blocks
-            !aria2c -x 16 -s 16 -k 1M --allow-overwrite=true --console-log-level=warn \
-                "https://huggingface.co/datasets/ochoadavid/cifar100-python/resolve/main/cifar-100-python.tar.gz" \
-                -d /content/raw_cifar100 -o cifar-100-python.tar.gz
+        for url in (
+            "https://huggingface.co/datasets/ochoadavid/cifar100-python/resolve/main/cifar-100-python.tar.gz",
+            "https://www.cs.toronto.edu/~kriz/cifar-100-python.tar.gz",
+        ):
+            subprocess.run(
+                ["aria2c", "-x", "16", "-s", "16", "-k", "1M", "--allow-overwrite=true", "--console-log-level=warn", url, "-d", str(raw_dir), "-o", "cifar-100-python.tar.gz"],
+                check=False,
+            )
+            if tar_file.exists() and tar_file.stat().st_size > 160_000_000:
+                break
         print("📦 Đang giải nén cifar-100-python.tar.gz...")
-        !tar -xzf /content/raw_cifar100/cifar-100-python.tar.gz -C /content/raw_cifar100
-        !rm -f /content/raw_cifar100/cifar-100-python.tar.gz
+        subprocess.run(["tar", "-xzf", str(tar_file), "-C", str(raw_dir)], check=True)
+        tar_file.unlink(missing_ok=True)
 
     ds_tr = torchvision.datasets.CIFAR100(root=str(raw_dir), train=True, download=False)
     ds_te = torchvision.datasets.CIFAR100(root=str(raw_dir), train=False, download=False)

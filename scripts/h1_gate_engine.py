@@ -64,13 +64,13 @@ class _ImageSet(torch.utils.data.Dataset):
         return torch.from_numpy(np.asarray(im, dtype=np.uint8).copy()).permute(2, 0, 1)
 
 
-def decode_images(paths, workers=2, bs=256, mmap_path=None):
+def decode_images(paths, workers=0, bs=256, mmap_path=None):
     import tempfile
     from pathlib import Path
-    w_eff = min(max(int(workers or 2), 0), 4)
+    w_eff = min(max(int(workers or 0), 0), 2)
     dl = torch.utils.data.DataLoader(_ImageSet(paths), batch_size=bs, num_workers=w_eff)
     n = len(paths)
-    if mmap_path is not None or n > 15000:
+    if mmap_path is not None or n > 1000:
         p = Path(mmap_path) if mmap_path else Path(tempfile.gettempdir()) / f"pix_mmap_{n}.bin"
         mm = np.memmap(str(p), dtype=np.uint8, mode="w+", shape=(n, 3, 224, 224))
         out = torch.from_numpy(mm)
@@ -112,7 +112,7 @@ def make_data(frame, *, path_col, text_col, label_col, task_col, task_order, num
 # ---------------------------------------------------------------------------- model
 def build(lora=True, towers=("vision", "text")):
     from transformers import CLIPModel
-    m = CLIPModel.from_pretrained(NAME).to(DEV)
+    m = CLIPModel.from_pretrained(NAME, low_cpu_mem_usage=True).to(DEV)
     for p in m.parameters():
         p.requires_grad_(False)
     states, loras = [], []

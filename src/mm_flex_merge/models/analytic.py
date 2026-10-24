@@ -73,7 +73,7 @@ class BlockAnalyticCL:
         D = self.projection_dim * len(self.modalities)
         self.gram = torch.zeros(D, D, dtype=torch.float64)
         self.class_sums = torch.zeros(D, self.num_classes, dtype=torch.float64)
-        self._use_exact_class_grams = (self.beta > 0) and (self.num_classes * D * D <= 500_000_000)
+        self._use_exact_class_grams = (self.beta > 0) and (self.num_classes * D * D <= 50_000_000)
         self.class_grams = torch.zeros(self.num_classes, D, D, dtype=torch.float64) if self._use_exact_class_grams else None
         self.class_counts = torch.zeros(self.num_classes, dtype=torch.long)
         self.modality_class_counts = torch.zeros(len(self.modalities), self.num_classes, dtype=torch.long)
@@ -199,10 +199,37 @@ class BlockAnalyticCL:
             sums_view = self.class_sums[idx]
 
         if self.class_grams is None:
-            if self.beta <= 0:
+            if self.beta <= 0 and not self._has_partial_observations:
                 return gram_view.clone(), sums_view.clone()
-            w = self.class_weights()
-            return gram_view.clone(), sums_view * w.unsqueeze(0)
+            w = self.class_weights() if self.beta > 0 else torch.ones(self.num_classes, dtype=torch.float64)
+            if not self._has_partial_observations or len(mods) == 1:
+                if len(mods) == 1 and self._has_partial_observations and self.beta > 0:
+                    m_idx = self.modalities.index(mods[0])
+                    w = self.class_weights(self.modality_class_counts[m_idx])
+                return gram_view.clone(), sums_view * w.unsqueeze(0)
+            K = len(mods)
+            G = gram_view.clone()
+            S = torch.zeros(K * P, self.num_classes, dtype=torch.float64)
+            scales = []
+            mean_scales = []
+            tot_cnt = float(self.class_counts.sum().item())
+            for m in mods:
+                m_idx = self.modalities.index(m)
+                mc = self.modality_class_counts[m_idx].double()
+                sc = torch.where(mc > 0, self.class_counts.double() / mc.clamp(min=1.0), torch.ones_like(w))
+                scales.append(sc)
+                m_tot = float(mc.sum().item())
+                mean_scales.append(tot_cnt / max(m_tot, 1.0) if m_tot > 0 else 1.0)
+            for a in range(K):
+                sa = slice(a * P, (a + 1) * P)
+                G[sa, sa] *= mean_scales[a]
+                S[sa] = sums_view[sa] * (w * scales[a]).unsqueeze(0)
+                for b in range(a + 1, K):
+                    sb = slice(b * P, (b + 1) * P)
+                    sab = math.sqrt(mean_scales[a] * mean_scales[b])
+                    G[sa, sb] *= sab
+                    G[sb, sa] *= sab
+            return G, S
 
         w = self.class_weights()
         if not self._has_partial_observations or len(mods) == 1:

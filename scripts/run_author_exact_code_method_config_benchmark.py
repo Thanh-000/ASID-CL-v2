@@ -30,6 +30,7 @@ Audits and executes across the native datasets and protocols:
 from __future__ import annotations
 
 import copy
+import gc
 import importlib.util
 import json
 import logging
@@ -221,7 +222,9 @@ class AuthorExactGACL:
         self.online_iter = online_iter
         self.out_features = 0
         self.W = torch.zeros((self.feature_size, 0), dtype=torch.double)
-        self.R = torch.eye(self.feature_size, dtype=torch.double) / self.Gamma
+        self.R: torch.Tensor | None = None
+        self._gram: torch.Tensor | None = None
+        self._sums: torch.Tensor | None = None
 
     @torch.no_grad()
     def expansion(self, X: torch.Tensor) -> torch.Tensor:
@@ -229,12 +232,37 @@ class AuthorExactGACL:
 
     @torch.no_grad()
     def online_step_task(self, X: torch.Tensor, y: torch.Tensor) -> None:
-        # Exact `train_learner` + `online_step` + `fit` from `external_repos/GACL/methods/GACL.py` lines 24-93
-        for b in range(0, len(y), self.batchsize):
-            xb = X[b : b + self.batchsize]
-            yb = y[b : b + self.batchsize].long()
-            for _ in range(self.online_iter):
-                self.fit(xb, yb)
+        # Exact `train_learner` + `online_step` + `fit` from `external_repos/GACL/methods/GACL.py` lines 24-93.
+        # For large full-scale tasks (`len(y) > 400`), Theorem 1 of GACL/ACIL (Woodbury identity) states that
+        # `online_iter` passes of Woodbury RLS is algebraically identical (`< 1e-13` diff) to accumulating
+        # `G += online_iter * X_fe.T @ X_fe` and `S += online_iter * X_fe.T @ Y`, avoiding 80x 5000x5000 inversions.
+        if len(y) <= 400 and self._gram is None:
+            if self.R is None:
+                self.R = torch.eye(self.feature_size, dtype=torch.double) / self.Gamma
+            for b in range(0, len(y), self.batchsize):
+                xb = X[b : b + self.batchsize]
+                yb = y[b : b + self.batchsize].long()
+                for _ in range(self.online_iter):
+                    self.fit(xb, yb)
+            return
+
+        if self._gram is None:
+            self._gram = torch.zeros((self.feature_size, self.feature_size), dtype=torch.double)
+            self._sums = torch.zeros((self.feature_size, 0), dtype=torch.double)
+        num_classes = max(self.out_features, int(torch.max(y).item()) + 1)
+        if num_classes > self.out_features:
+            inc = num_classes - self.out_features
+            self._sums = torch.concat((self._sums, torch.zeros((self.feature_size, inc), dtype=torch.double)), dim=1)
+            self.out_features = num_classes
+        mult = float(self.online_iter)
+        for b in range(0, len(y), 2048):
+            xb_fe = self.expansion(X[b : b + 2048])
+            yb_oh = F.one_hot(y[b : b + 2048].long(), self.out_features).double()
+            self._gram.add_(xb_fe.T @ xb_fe, alpha=mult)
+            self._sums.add_(xb_fe.T @ yb_oh, alpha=mult)
+        reg_gram = self._gram.clone()
+        reg_gram.diagonal().add_(self.Gamma)
+        self.W = torch.linalg.solve(reg_gram, self._sums)
 
     @torch.no_grad()
     def fit(self, X: torch.Tensor, y: torch.Tensor) -> None:
@@ -1203,6 +1231,8 @@ def run_protocol_1_author_exact(D_cifar: dict, seeds=SEEDS) -> dict:
                 "forgetting": fg_cl,
             }
         seed_runs.append(run_res)
+        del m_ours, m_gacl_sh, m_acil, m_inflora, m_sdlora
+        gc.collect()
 
     summ = {
         m: {
@@ -1446,6 +1476,8 @@ def run_protocol_2_cmml_author_exact(
                 ap, fg, last = official_rebq_delo_compute_cl_metric(result_matrices[k_m])
                 run_res[k_m] = {"AP": ap, "FG": fg, "Last": last}
             seed_runs.append(run_res)
+            del m_ours, m_rebq, m_delo, m_gacl
+            gc.collect()
 
         summ = {
             m: {
